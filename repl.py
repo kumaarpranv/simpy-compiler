@@ -2,6 +2,7 @@ from Lexer import *
 from Token import *
 from Parser import *
 from Evaluator import *
+from Object import *
 
 PROMPT = ">> "
 
@@ -12,6 +13,7 @@ def printParserErrors(errors):
 
 
 def Start():
+    env = Environment()
     while True:
         print(PROMPT, end="")
         scanned = input()
@@ -26,6 +28,6 @@ def Start():
             printParserErrors(p.Errors())
             continue
 
-        evaluated = Eval(prog)
+        evaluated = Eval(prog, env)
         if evaluated != None:
             print(evaluated.Inspect(), end="\n")

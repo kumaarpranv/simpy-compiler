@@ -79,14 +79,14 @@ def isTrue(obj):
         return True
 
 
-def evalIfExpression(ie):
-    condition = Eval(ie.Condition)
+def evalIfExpression(ie, env):
+    condition = Eval(ie.Condition, env)
     if isError(condition):
         return condition
     if isTrue(condition):
-        return Eval(ie.Consequence)
+        return Eval(ie.Consequence, env)
     elif ie.Alternative != None:
-        return Eval(ie.Alternative)
+        return Eval(ie.Alternative, env)
     else:
         return None
 
@@ -131,19 +131,19 @@ def nativeBoolToBooleanObject(input):
         return Boolean.parse_obj({"Value": False})
 
 
-def evalStatements(stmts):
+def evalStatements(stmts, env):
     result = None
     for stmt in stmts:
-        result = Eval(stmt)
+        result = Eval(stmt, env)
         if isinstance(result, ReturnValue):
             return result.Value
     return result
 
 
-def evalProgram(program):
+def evalProgram(program, env):
     result = None
     for stmt in program.Statements:
-        result = Eval(stmt)
+        result = Eval(stmt, env)
         if isinstance(result, ReturnValue):
             return result.Value
         if isinstance(result, Error):
@@ -151,10 +151,10 @@ def evalProgram(program):
     return result
 
 
-def evalBlockStatement(block):
+def evalBlockStatement(block, env):
     result = None
     for stmt in block.Statements:
-        result = Eval(stmt)
+        result = Eval(stmt, env)
         if result != None:
             rt = result.Type()
             if rt == OBJCONSTS.RETURN_VALUE_OBJ or rt == OBJCONSTS.ERROR_OBJ:
@@ -168,45 +168,57 @@ def isError(obj):
     return False
 
 
-def Eval(node):
+def evalIdentifier(node, env):
+    val = env.Get(node.Value)
+    if val != None:
+        return val
+    else:
+        return newError("identifier not found: " + node.Value)
+
+
+def Eval(node, env):
     # print(type(node))
     if isinstance(node, Program):
-        return evalProgram(node)
+        return evalProgram(node, env)
     elif isinstance(node, VarStatement):
-        val = Eval(node.Value)
+        val = Eval(node.Value, env)
         if isError(val):
             return val
+        env.Set(node.Name.Value, val)
+    elif isinstance(node, Identifier):
+        return evalIdentifier(node, env)
+
     elif isinstance(node, ExpressionStatement):
-        return Eval(node.Expression)
+        return Eval(node.Expression, env)
     elif isinstance(node, IntegerLiteral):
         return Integer.parse_obj({"Value": node.Value})
     elif isinstance(node, BooleanLiteral):
         return nativeBoolToBooleanObject(node.Value)
     elif isinstance(node, PrefixExpression):
-        right = Eval(node.Right)
+        right = Eval(node.Right, env)
         if isError(right):
             return right
         return evalPrefixExpression(node.Operator, right)
 
     elif isinstance(node, InfixExpression):
-        left = Eval(node.Left)
+        left = Eval(node.Left, env)
         if isError(left):
             return left
-        right = Eval(node.Right)
+        right = Eval(node.Right, env)
         if isError(right):
             return right
         return evalInfixExpression(node.Operator, left, right)
 
     elif isinstance(node, BlockStatement):
-        return evalBlockStatement(node)
+        return evalBlockStatement(node, env)
     elif isinstance(node, IfExpression):
-        return evalIfExpression(node)
+        return evalIfExpression(node, env)
     elif isinstance(node, ReturnStatement):
-        val = Eval(node.ReturnValue)
+        val = Eval(node.ReturnValue, env)
         if isError(val):
             return val
         return ReturnValue.parse_obj({"Value": val})
     elif isinstance(node, Program):
-        return evalProgram(node)
+        return evalProgram(node, env)
 
     return None
