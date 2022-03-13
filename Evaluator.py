@@ -163,17 +163,54 @@ def evalBlockStatement(block, env):
 
 
 def isError(obj):
-    if obj != None:
+    NoneType = type(None)
+    if isinstance(obj, NoneType):
         return obj.Type() == OBJCONSTS.ERROR_OBJ
     return False
 
 
 def evalIdentifier(node, env):
     val = env.Get(node.Value)
-    if val != None:
-        return val
-    else:
+    NoneType = type(None)
+
+    if isinstance(val, NoneType):
         return newError("identifier not found: " + node.Value)
+    else:
+        return val
+
+
+def evalExpressions(exps, env):
+    result = []
+    for e in exps:
+        evaluated = Eval(e, env)
+        if isError(evaluated):
+            return [evaluated]
+        result.append(evaluated)
+    return result
+
+
+def unwrapReturnValue(obj):
+    if isinstance(obj, ReturnValue):
+        return obj.Value
+    return obj
+
+
+def extendFunctionEnv(fn, args):
+    env = Environment()
+    env.SetOuter(fn.Env)
+    for paramIdx, param in enumerate(fn.Parameters):
+        env.Set(param.Value, args[paramIdx])
+    return env
+
+
+def applyFunction(fn, args):
+    function = fn
+    NoneType = type(None)
+    if isinstance(function, NoneType):
+        return newError("not a function: " + fn.Type().value)
+    extendedEnv = extendFunctionEnv(function, args)
+    evaluated = Eval(function.Body, extendedEnv)
+    return unwrapReturnValue(evaluated)
 
 
 def Eval(node, env):
@@ -194,6 +231,19 @@ def Eval(node, env):
         return Integer.parse_obj({"Value": node.Value})
     elif isinstance(node, BooleanLiteral):
         return nativeBoolToBooleanObject(node.Value)
+    elif isinstance(node, FunctionLiteral):
+        params = node.Parameters
+        body = node.Body
+        return Function.parse_obj({"Parameters": params, "Env": env, "Body": body})
+    elif isinstance(node, CallExpression):
+        function = Eval(node.Function, env)
+        if isError(function):
+            return function
+        args = evalExpressions(node.Arguments, env)
+        if len(args) == 1 and isError(args[0]):
+            return args[0]
+        return applyFunction(function, args)
+
     elif isinstance(node, PrefixExpression):
         right = Eval(node.Right, env)
         if isError(right):
