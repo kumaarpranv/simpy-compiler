@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 import enum
-from typing import List
+from typing import List, Dict, Optional
 from Ast import BlockStatement, Identifier
 
 
@@ -14,8 +14,8 @@ class OBJCONSTS(enum.Enum):
 
 
 class Environment(BaseModel):
-    store = {}
-    outer: BaseModel = None
+    store: Dict[str, Optional[object]] = {}
+    outer: Optional[BaseModel] = None
 
     def Get(__self, name):
         if name in __self.store.keys():
